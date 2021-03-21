@@ -1,44 +1,47 @@
 import os
 import json
-from datetime import datetime
-
-from sklearn.utils import Bunch
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import logging
-from acceleration_lib.defaults import DefaultValues
-from acceleration_lib.skl_permutation_importance import permutation_importance
-from matplotlib.backends.backend_pdf import PdfPages
-import time
+from sklearn.metrics import roc_auc_score
 
 
-def generate_dtype_dict(predictors_nomi: list = None,
-                        predictors_metr: list = None) -> dict:
+def generate_dtype_dict(features_cat: list = None,
+                        features_num: list = None) -> dict:
     """
     Sets the metrical (numerical) predictors to float type and the nominal (categorical)
     predictors to object type.
-
-    @param predictors_nomi: List of nominal (categorical) predictors.
-    @param predictors_metr: List of metrical (numerical) predictors.
-
+    @param features_cat: List of categorical features
+    @param features_num: List of numerical features
     @return: Dictionary containing the predictor names as key and their
     set type (float or object) as value.
     """
     d = {}
-    if predictors_nomi is not None:
-        d.update(__generate_dtype_dict(predictors_nomi, object))
-    if predictors_metr is not None:
-        d.update(__generate_dtype_dict(predictors_metr, float))
+    if features_cat is not None:
+        d.update(__generate_dtype_dict(features_cat, object))
+    if features_num is not None:
+        d.update(__generate_dtype_dict(features_num, float))
     return d
 
 
-def check_fn(fn: str):
+def __generate_dtype_dict(col_names: list, t: type) -> dict:
+    """
+    Private function which takes an non-empty list of column (predictor) names and
+    a python builtin type and creates a dictionary with the column name as key and
+    the type t as value.
+    @param col_names: List of column (predictor) names.
+    @param t: Required type of the columns listed in col_names.
+    @return: Dictionary containing the column names as keys and type t as value.
+    """
+    if not col_names:
+        raise ValueError('Column list cannot be empty.')
+    d = {}
+    for i, c in enumerate(col_names):
+        d[c] = t
+    return d
+
+
+def check_fn(fn: str) -> tuple:
     """
     Checks if the file path is actually a file.
-
     @param fn: Path to a file.
-
     @return: Full path with filename and path to the directory where it is stored.
     """
     if os.path.isfile(fn):
@@ -53,9 +56,7 @@ def filename_to_dict(fn: str) -> dict:
     """
     Takes a string path to a json file, loads the json file and deserializes it as
     a dictionary.
-
     @param fn: String path to a json file which should be loaded.
-
     @return: Deserialized json file as dictionary.
     """
     abs_fn, abs_dir = check_fn(fn)
@@ -63,3 +64,29 @@ def filename_to_dict(fn: str) -> dict:
         with open(abs_fn, 'r') as f:
             json_conf = json.load(f)
     return json_conf
+
+
+def prefix_dict_key(d: dict, prefix: str) -> dict:
+    """
+    Concatenates a prefix to the keys of a dictionary, not changing the values.
+    @param d: Dictionary for which the keys need to be changed
+    @param prefix: Prefix for the key names
+    @return: New dictionary whose keys are in the form of prefix + original key
+    """
+    return dict((prefix + key, value) for (key, value) in d.items())
+
+
+def custom_roc_auc_score(y_true,
+                         y_score,
+                         average='macro',
+                         sample_weight=None,
+                         max_fpr=None,
+                         multi_class='raise',
+                         labels=None):
+    return roc_auc_score(y_true=y_true,
+                         y_score=y_score,
+                         average='macro',
+                         sample_weight=sample_weight,
+                         max_fpr=max_fpr,
+                         multi_class='ovo',
+                         labels=labels)
